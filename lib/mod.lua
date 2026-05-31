@@ -20,6 +20,12 @@ local default_port_state = {
   crow_cc_outputs = 1,
   crow_cc_selection_a = 1,
   crow_cc_selection_b = 1,
+  tuning_mode = 1,
+  tuning_file = 1,
+  tuning_root = 0,
+  tuning_voices = 1,
+  tuning_base_ch = 1,
+  tuning_pb_range = 2,
 }
 
 -- MOD NORNS OVERRIDES --
@@ -69,7 +75,13 @@ function write_state()
     io.write("crow_notes="..v.crow_notes..",")
     io.write("crow_cc_outputs="..v.crow_cc_outputs..",")
     io.write("crow_cc_selection_a="..v.crow_cc_selection_a..",")
-    io.write("crow_cc_selection_b="..v.crow_cc_selection_b.."}")
+    io.write("crow_cc_selection_b="..v.crow_cc_selection_b..",")
+    io.write("tuning_mode="..v.tuning_mode..",")
+    io.write("tuning_file="..v.tuning_file..",")
+    io.write("tuning_root="..v.tuning_root..",")
+    io.write("tuning_voices="..v.tuning_voices..",")
+    io.write("tuning_base_ch="..v.tuning_base_ch..",")
+    io.write("tuning_pb_range="..v.tuning_pb_range.."}")
   end
   io.write("}\n")
   io.close(f)
@@ -99,6 +111,19 @@ function assign_state()
       end
     end
   end
+end
+
+local function refresh_musicutil_tuning()
+  for i = 1, 16 do
+    if state[i] and state[i].tuning_mode == 2 then
+      local t = core.port_tunings[i]
+      if t then
+        core.apply_musicutil_patch(t, state[i].tuning_root)
+        return
+      end
+    end
+  end
+  core.remove_musicutil_patch()
 end
 
 -- HOOKS --
@@ -249,6 +274,71 @@ function create_config()
         minimum = 1,
         maximum = 128,
       },
+      tuning_mode = {
+        param_type = "option",
+        id = "tuning_mode",
+        name = "Tuning",
+        options = core.tuning_modes,
+        action = function(value)
+          if value == 3 then
+            local vc = core.tuning_voice_counts[state[v.port].tuning_voices]
+            core.setup_voice_pool(v.port, vc, state[v.port].tuning_base_ch)
+          end
+          refresh_musicutil_tuning()
+        end
+      },
+      tuning_file = {
+        param_type = "option",
+        id = "tuning_file",
+        name = "Tuning file",
+        options = core.tuning_file_names,
+        action = function(value)
+          core.load_port_tuning(v.port, value)
+          refresh_musicutil_tuning()
+        end
+      },
+      tuning_root = {
+        param_type = "number",
+        id = "tuning_root",
+        name = "Tuning root",
+        minimum = 0,
+        maximum = 11,
+        formatter = core.root_note_formatter,
+        action = function(value)
+          refresh_musicutil_tuning()
+        end
+      },
+      tuning_voices = {
+        param_type = "option",
+        id = "tuning_voices",
+        name = "PB voices",
+        options = core.tuning_voice_options,
+        action = function(value)
+          if state[v.port].tuning_mode == 3 then
+            local vc = core.tuning_voice_counts[value]
+            core.setup_voice_pool(v.port, vc, state[v.port].tuning_base_ch)
+          end
+        end
+      },
+      tuning_base_ch = {
+        param_type = "number",
+        id = "tuning_base_ch",
+        name = "PB base ch",
+        minimum = 1,
+        maximum = 16,
+        action = function(value)
+          if state[v.port].tuning_mode == 3 then
+            local vc = core.tuning_voice_counts[state[v.port].tuning_voices]
+            core.setup_voice_pool(v.port, vc, value)
+          end
+        end
+      },
+      tuning_pb_range = {
+        param_type = "option",
+        id = "tuning_pb_range",
+        name = "PB range (st)",
+        options = core.tuning_pb_range_options,
+      },
     }
 
     config[k].target.action(state[k].target)
@@ -278,6 +368,9 @@ function device_event(id, data)
         port_config.crow_cc_outputs,
         port_config.crow_cc_selection_a,
         port_config.crow_cc_selection_b,
+        port_config.tuning_mode,
+        port_config.tuning_root,
+        core.tuning_pb_range_values[port_config.tuning_pb_range] or 2,
         data)
       
       api.user_event(id, data)
@@ -286,10 +379,19 @@ end
 
 core.origin_event = device_event -- assign device_event to core origin
 
-function update_devices() 
+function update_devices()
   core.setup_midi()
+  core.scan_tuning_files()
   config = create_config()
   assign_state()
+  for port, s in pairs(state) do
+    core.load_port_tuning(port, s.tuning_file)
+    if s.tuning_mode == 3 then
+      local vc = core.tuning_voice_counts[s.tuning_voices] or 1
+      core.setup_voice_pool(port, vc, s.tuning_base_ch)
+    end
+  end
+  refresh_musicutil_tuning()
 end
 
 function update_parameter(p, index, dir)
@@ -335,7 +437,7 @@ local get_menu_pagination_table = function()
 end
 
 -- MOD MENU --
-local screen_order = {"active", "target", "input_channel", "output_channel", "send_clock", "quantize_midi", "root_note", "current_scale", "cc_limit", "crow_notes", "crow_cc_outputs", "crow_cc_selection_a", "crow_cc_selection_b", "midi_panic"}
+local screen_order = {"active", "target", "input_channel", "output_channel", "send_clock", "quantize_midi", "root_note", "current_scale", "cc_limit", "crow_notes", "crow_cc_outputs", "crow_cc_selection_a", "crow_cc_selection_b", "tuning_mode", "tuning_file", "tuning_root", "tuning_voices", "tuning_base_ch", "tuning_pb_range", "midi_panic"}
 local m = {
   list=screen_order,
   pos=0,

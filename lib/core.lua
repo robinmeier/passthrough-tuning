@@ -1,6 +1,7 @@
 local MusicUtil = require "musicutil"
 local pt = {}
 local utils = require("passthrough/lib/utils")
+local TuningFiles = require("passthrough/lib/tuning_files")
 
 pt.midi_panic_active = false
 pt.input_channels = {"No change"}
@@ -11,6 +12,19 @@ pt.cc_limits = {"Pass all", "Pass none"}
 local crow_output_options = {"Off", "1+2", "3+4"}
 pt.crow_notes = crow_output_options
 pt.crow_cc_outputs = crow_output_options
+
+pt.tuning_modes = {"off", "musicutil", "midi pb"}
+pt.tuning_voice_options = {"1", "4", "8", "16"}
+pt.tuning_voice_counts = {1, 4, 8, 16}
+pt.tuning_pb_range_options = {"1", "2", "4", "12", "24"}
+pt.tuning_pb_range_values = {1, 2, 4, 12, 24}
+pt.tuning_file_names = {"(none)"}
+pt.tuning_file_paths = {nil}
+
+local original_note_num_to_freq = MusicUtil.note_num_to_freq
+pt.port_tunings = {}
+pt.voice_pools = {}
+local voice_age_counter = 0
 
 local current_crow_note = nil
 
@@ -157,6 +171,44 @@ end
 
 pt.root_note_formatter = MusicUtil.note_num_to_name
 
+-- TUNING --
+pt.scan_tuning_files = function()
+    pt.tuning_file_names = {"(none)"}
+    pt.tuning_file_paths = {nil}
+    local files = TuningFiles.scan()
+    for _, f in ipairs(files) do
+        table.insert(pt.tuning_file_names, f.name)
+        table.insert(pt.tuning_file_paths, f.path)
+    end
+end
+
+pt.load_port_tuning = function(port, file_idx)
+    if not file_idx or file_idx <= 1 or pt.tuning_file_paths[file_idx] == nil then
+        pt.port_tunings[port] = nil
+        return
+    end
+    pt.port_tunings[port] = TuningFiles.load(pt.tuning_file_paths[file_idx])
+end
+
+pt.setup_voice_pool = function(port, voice_count, base_ch)
+    local pool = {}
+    for i = 1, voice_count do
+        pool[i] = {channel = base_ch + i - 1, note = nil, age = 0}
+    end
+    pt.voice_pools[port] = pool
+end
+
+pt.apply_musicutil_patch = function(tuning, root_note)
+    MusicUtil.note_num_to_freq = function(num)
+        local root_hz = original_note_num_to_freq(root_note)
+        return tuning:note_freq(num, root_note, root_hz)
+    end
+end
+
+pt.remove_musicutil_patch = function()
+    MusicUtil.note_num_to_freq = original_note_num_to_freq
+end
+
 -- EVENTS ON MENU CHANGE --
 pt.remove_active_note = function(target, note, ch)
     local i = 1
@@ -182,7 +234,18 @@ pt.stop_all_notes = function()
             active_notes[i][1]:note_off(active_notes[i][2], 0, active_notes[i][3])
         end
     end
-    active_notes= {}
+    active_notes = {}
+    for port, pool in pairs(pt.voice_pools) do
+        for _, slot in ipairs(pool) do
+            if slot.note ~= nil then
+                for _, target in pairs(pt.port_connections[port] or {}) do
+                    target:note_off(slot.note, 0, slot.channel)
+                end
+                slot.note = nil
+                slot.age = 0
+            end
+        end
+    end
 end
 
 -- CROW DATA
@@ -214,8 +277,41 @@ pt.quantize_note_data = function(note, current_scale)
 end
 
 -- DATA HANDLERS --
-pt.handle_midi_data = function(msg, target, out_ch, quantize_midi, current_scale, cc_limit)
+pt.handle_midi_data = function(msg, target, out_ch, quantize_midi, current_scale, cc_limit, tuning_mode, port, tuning_root, pb_range)
     local note = (quantize_midi == 2 and msg.note ~= nil) and pt.quantize_note_data(msg.note, current_scale) or msg.note
+
+    -- MIDI pitch-bend microtuning: one channel per voice
+    if tuning_mode == 3 and pt.voice_pools[port] and (msg.type == "note_on" or msg.type == "note_off") then
+        local pool = pt.voice_pools[port]
+        local tuning = pt.port_tunings[port]
+        if msg.type == "note_on" then
+            voice_age_counter = voice_age_counter + 1
+            local slot_idx = 1
+            local oldest_age = math.huge
+            for i, slot in ipairs(pool) do
+                if slot.note == nil then slot_idx = i; oldest_age = -1; break
+                elseif slot.age < oldest_age then oldest_age = slot.age; slot_idx = i end
+            end
+            local slot = pool[slot_idx]
+            if slot.note ~= nil then target:note_off(slot.note, 0, slot.channel) end
+            slot.note = note
+            slot.age = voice_age_counter
+            if tuning then
+                target:pitchbend(tuning:pitch_bend_value(note, tuning_root, pb_range), slot.channel)
+            end
+            target:note_on(note, msg.vel, slot.channel)
+        else
+            for _, slot in ipairs(pool) do
+                if slot.note == note then
+                    target:note_off(note, 0, slot.channel)
+                    slot.note = nil
+                    slot.age = 0
+                    break
+                end
+            end
+        end
+        return
+    end
 
     if msg.type == "note_off" then
         target:note_off(note, 0, out_ch)
@@ -291,7 +387,7 @@ pt.handle_cc_limit = function()
   cc_limit_init = {}
 end
 
-pt.device_event = function(origin, device_target, input_channel, output_channel, send_clock, quantize_midi, current_scale, cc_limit, crow_notes, crow_cc_outputs, crow_cc_selection_a, crow_cc_selection_b, data)
+pt.device_event = function(origin, device_target, input_channel, output_channel, send_clock, quantize_midi, current_scale, cc_limit, crow_notes, crow_cc_outputs, crow_cc_selection_a, crow_cc_selection_b, tuning_mode, tuning_root, pb_range, data)
     if #data == 0 then
         print("no data")
         return
@@ -311,7 +407,7 @@ pt.device_event = function(origin, device_target, input_channel, output_channel,
 
         
         for k, v in pairs(connections) do
-          pt.handle_midi_data(msg, v, out_ch, quantize_midi, scale, cc_limit)
+          pt.handle_midi_data(msg, v, out_ch, quantize_midi, scale, cc_limit, tuning_mode, origin, tuning_root, pb_range)
         end
     end
     

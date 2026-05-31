@@ -29,6 +29,12 @@ local port_param_items = {
   "crow_cc_outputs",
   "crow_cc_selection_a",
   "crow_cc_selection_b",
+  "tuning_mode",
+  "tuning_file",
+  "tuning_root",
+  "tuning_voices",
+  "tuning_base_ch",
+  "tuning_pb_range",
 }
 
 Passthrough.user_event = core.user_event
@@ -51,6 +57,9 @@ local function device_event(id, data)
       params:get("crow_cc_outputs_"..port),
       params:get("crow_cc_selection_a_"..port),
       params:get("crow_cc_selection_b_"..port),
+      params:get("tuning_mode_"..port),
+      params:get("tuning_root_"..port),
+      core.tuning_pb_range_values[params:get("tuning_pb_range_"..port)] or 2,
       data)
     
     Passthrough.user_event(id, data)
@@ -65,6 +74,7 @@ function Passthrough.init()
   end
 
   core.setup_midi()
+  core.scan_tuning_files()
   core.origin_event = device_event -- assign to core event
   
   if core.has_devices == true then
@@ -189,6 +199,69 @@ function Passthrough.init()
             min = 1,
             max = 128,
             default = 1
+          }
+          params:add {
+            type = "option",
+            id = "tuning_mode_"..v.port,
+            name = "Tuning",
+            options = core.tuning_modes,
+            action = function(value)
+              if value == 3 then
+                local vc = core.tuning_voice_counts[params:get("tuning_voices_"..v.port)]
+                core.setup_voice_pool(v.port, vc, params:get("tuning_base_ch_"..v.port))
+              end
+            end
+          }
+          params:add {
+            type = "option",
+            id = "tuning_file_"..v.port,
+            name = "Tuning file",
+            options = core.tuning_file_names,
+            action = function(value)
+              core.load_port_tuning(v.port, value)
+            end
+          }
+          params:add {
+            type = "number",
+            id = "tuning_root_"..v.port,
+            name = "Tuning root",
+            min = 0,
+            max = 11,
+            default = 0,
+            formatter = function(param) return core.root_note_formatter(param:get()) end
+          }
+          params:add {
+            type = "option",
+            id = "tuning_voices_"..v.port,
+            name = "PB voices",
+            options = core.tuning_voice_options,
+            action = function(value)
+              if params:get("tuning_mode_"..v.port) == 3 then
+                local vc = core.tuning_voice_counts[value]
+                core.setup_voice_pool(v.port, vc, params:get("tuning_base_ch_"..v.port))
+              end
+            end
+          }
+          params:add {
+            type = "number",
+            id = "tuning_base_ch_"..v.port,
+            name = "PB base ch",
+            min = 1,
+            max = 16,
+            default = 1,
+            action = function(value)
+              if params:get("tuning_mode_"..v.port) == 3 then
+                local vc = core.tuning_voice_counts[params:get("tuning_voices_"..v.port)]
+                core.setup_voice_pool(v.port, vc, value)
+              end
+            end
+          }
+          params:add {
+            type = "option",
+            id = "tuning_pb_range_"..v.port,
+            name = "PB range (st)",
+            options = core.tuning_pb_range_options,
+            default = 2
           }
       end
       params:add_separator("All devices")
