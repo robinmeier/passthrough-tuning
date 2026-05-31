@@ -22,6 +22,8 @@ passthrough is built as a mod and also as a library that can be added to individ
 
 - converting MIDI note data to cv/gate, and CC data to cv by sending to crow
 
+- **microtuning** incoming midi using Scala `.scl` files — retune any connected synth or norns engine to just intonation, historical temperaments, or any custom scale
+
 ## requirements
 
 norns + midi devices
@@ -49,6 +51,12 @@ passthrough assigns some midi routing settings for each connected midi device in
 - `Crow cc output` allows two streams of control change data to be sent to Monome Crow output pairs 1+2 or 3+4
 - `Crow cc out a` sets the MIDI control change number to assign to the first of the assigned pair of `Crow cc output`
 - `Crow cc out b` sets the MIDI control change number to assign to the second of the assigned pair of `Crow cc output`
+- `Tuning` selects the microtuning mode: `off`, `musicutil`, or `midi pb` (see [microtuning](#microtuning) below)
+- `Tuning file` selects a `.scl` file from `~/dust/data/passthrough/tunings/`
+- `Tuning root` sets the root pitch class for the tuning (C–B)
+- `PB voices` sets how many simultaneous voices are available in `midi pb` mode: `1`, `4`, `8`, or `16`
+- `PB base ch` sets the first MIDI channel used for the pitch-bend voice pool in `midi pb` mode
+- `PB range (st)` sets the pitch bend range in semitones: `1`, `2`, `4`, `12`, or `24` — must match the pitch bend range configured on your target synth
 
 additionally, `Midi panic` is a toggle to stop all active notes if some notes are hanging.
 
@@ -93,6 +101,38 @@ scripts can listen for midi events handled in passthrough and define their callb
 
   passthrough.user_event = user_midi_event
 ```
+
+## microtuning
+
+passthrough can retune incoming MIDI notes using [Scala](https://www.huygens-fokker.org/scala/) `.scl` files. place your `.scl` files in:
+
+```
+~/dust/data/passthrough/tunings/
+```
+
+the folder is created automatically on first run. the `Tuning file` parameter lists all `.scl` files found there. many free scale libraries are available online — the [Scala scale archive](https://www.huygens-fokker.org/scala/downloads.html) contains thousands of historical and microtonal tunings.
+
+there are two tuning modes:
+
+### musicutil (for norns engines)
+
+patches `MusicUtil.note_num_to_freq` globally so that any norns engine which uses musicutil for pitch calculation (most do) will automatically play in the selected tuning. no additional configuration of the engine is needed.
+
+the first port with `Tuning` set to `musicutil` determines the active tuning for the whole system.
+
+### midi pb (for external hardware and software)
+
+applies microtuning via MIDI pitch bend messages. each simultaneous voice is assigned its own MIDI channel, with a pitch bend applied before the note-on to shift the pitch to the correct tuned frequency.
+
+**setup steps:**
+
+1. set `Tuning` to `midi pb`
+2. choose a `Tuning file` and `Tuning root`
+3. set `PB voices` to the number of simultaneous notes you need
+4. set `PB base ch` to the first channel of the voice pool (e.g. `1` for channels 1–4 with 4 voices)
+5. set `PB range (st)` to match the pitch bend range configured on your target synth (the default is `2` semitones, which is the most common synth default)
+
+**note:** the voice pool channels must be free — passthrough will use them exclusively for tuned voices. if your synth does not respond to pitch bend per channel, use `musicutil` mode instead or configure your synth for polyphonic pitch bend on the relevant channels.
 
 ## issues
 
