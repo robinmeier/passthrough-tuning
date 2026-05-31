@@ -87,11 +87,14 @@ function write_state()
   io.close(f)
 end
 
-function read_state() 
+function read_state()
   local f = io.open(_path.data.."passthrough.state")
   if f ~= nil then
     io.close(f)
-    state = dofile(_path.data.."passthrough.state")
+    local ok, loaded = pcall(dofile, _path.data.."passthrough.state")
+    if ok and type(loaded) == "table" then
+      state = loaded
+    end
   end
 
   for i = 1, tab.count(state) do
@@ -350,6 +353,7 @@ function create_config()
 end
 
 function device_event(id, data)
+    if state == nil then return end
     local port = core.get_port_from_id(id)
     port_config = state[port]
     
