@@ -226,8 +226,8 @@ function Passthrough.init()
             id = "tuning_root_"..v.port,
             name = "Tuning root",
             min = 0,
-            max = 11,
-            default = 0,
+            max = 127,
+            default = 60,
             formatter = function(param) return core.root_note_formatter(param:get()) end
           }
           params:add {

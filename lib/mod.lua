@@ -22,7 +22,7 @@ local default_port_state = {
   crow_cc_selection_b = 1,
   tuning_mode = 1,
   tuning_file = 1,
-  tuning_root = 0,
+  tuning_root = 60,
   tuning_voices = 1,
   tuning_base_ch = 1,
   tuning_pb_range = 2,
@@ -305,7 +305,7 @@ function create_config()
         id = "tuning_root",
         name = "Tuning root",
         minimum = 0,
-        maximum = 11,
+        maximum = 127,
         formatter = core.root_note_formatter,
         action = function(value)
           refresh_musicutil_tuning()

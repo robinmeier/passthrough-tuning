@@ -53,7 +53,7 @@ passthrough assigns some midi routing settings for each connected midi device in
 - `Crow cc out b` sets the MIDI control change number to assign to the second of the assigned pair of `Crow cc output`
 - `Tuning` selects the microtuning mode: `off`, `musicutil`, or `midi pb` (see [microtuning](#microtuning) below)
 - `Tuning file` selects a `.scl` file from `~/dust/data/passthrough/tunings/`
-- `Tuning root` sets the root pitch class for the tuning (C–B)
+- `Tuning root` sets the root MIDI note (0–127, shown as note name e.g. C4). This is the key that plays scale degree 0. Consecutive keys play consecutive scale degrees, so the scale period (octave) repeats every N keys for an N-note scale.
 - `PB voices` sets how many simultaneous voices are available in `midi pb` mode: `1`, `4`, `8`, or `16`
 - `PB base ch` sets the first MIDI channel used for the pitch-bend voice pool in `midi pb` mode
 - `PB range (st)` sets the pitch bend range in semitones: `1`, `2`, `4`, `12`, or `24` — must match the pitch bend range configured on your target synth
@@ -111,6 +111,8 @@ passthrough can retune incoming MIDI notes using [Scala](https://www.huygens-fok
 ```
 
 the folder is created automatically on first run. the `Tuning file` parameter lists all `.scl` files found there. many free scale libraries are available online — the [Scala scale archive](https://www.huygens-fokker.org/scala/downloads.html) contains thousands of historical and microtonal tunings.
+
+**key mapping:** each MIDI key plays one scale degree in order. Key `root` = degree 0, key `root+1` = degree 1, and so on. After N keys the scale period repeats one octave higher, where N is the number of degrees in the `.scl` file. A 5-note pentatonic scale therefore repeats every 5 keys; a 30-note scale spans 30 consecutive keys per octave.
 
 there are two tuning modes:
 
