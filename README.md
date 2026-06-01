@@ -32,8 +32,8 @@ if your midi hardware does not offer midi via usb, a midi interface such as an i
 
 ## installation
 
-passthrough is available from the maiden catalogue or by running the following command in the maiden repl
-`;install https://github.com/nattog/passthrough`
+run the following command in the maiden repl
+`;install https://github.com/robinmeier/passthrough-tuning`
 
 ## getting started
 
