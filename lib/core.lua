@@ -193,7 +193,7 @@ end
 pt.setup_voice_pool = function(port, voice_count, base_ch)
     local pool = {}
     for i = 1, voice_count do
-        pool[i] = {channel = base_ch + i - 1, note = nil, age = 0}
+        pool[i] = {channel = base_ch + i - 1, note = nil, coarse_note = nil, age = 0}
     end
     pt.voice_pools[port] = pool
 end
@@ -239,9 +239,10 @@ pt.stop_all_notes = function()
         for _, slot in ipairs(pool) do
             if slot.note ~= nil then
                 for _, target in pairs(pt.port_connections[port] or {}) do
-                    target:note_off(slot.note, 0, slot.channel)
+                    target:note_off(slot.coarse_note or slot.note, 0, slot.channel)
                 end
                 slot.note = nil
+                slot.coarse_note = nil
                 slot.age = 0
             end
         end
@@ -293,18 +294,26 @@ pt.handle_midi_data = function(msg, target, out_ch, quantize_midi, current_scale
                 elseif slot.age < oldest_age then oldest_age = slot.age; slot_idx = i end
             end
             local slot = pool[slot_idx]
-            if slot.note ~= nil then target:note_off(slot.note, 0, slot.channel) end
+            if slot.note ~= nil then
+                target:note_off(slot.coarse_note or slot.note, 0, slot.channel)
+            end
             slot.note = note
             slot.age = voice_age_counter
             if tuning then
-                target:pitchbend(tuning:pitch_bend_value(note, tuning_root, pb_range), slot.channel)
+                local coarse, pb = tuning:coarse_and_bend(note, tuning_root, pb_range)
+                slot.coarse_note = coarse
+                target:pitchbend(pb, slot.channel)
+                target:note_on(coarse, msg.vel, slot.channel)
+            else
+                slot.coarse_note = note
+                target:note_on(note, msg.vel, slot.channel)
             end
-            target:note_on(note, msg.vel, slot.channel)
         else
             for _, slot in ipairs(pool) do
                 if slot.note == note then
-                    target:note_off(note, 0, slot.channel)
+                    target:note_off(slot.coarse_note or note, 0, slot.channel)
                     slot.note = nil
+                    slot.coarse_note = nil
                     slot.age = 0
                     break
                 end

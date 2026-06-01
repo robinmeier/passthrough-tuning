@@ -134,6 +134,8 @@ applies microtuning via MIDI pitch bend messages. each simultaneous voice is ass
 4. set `PB base ch` to the first channel of the voice pool (e.g. `1` for channels 1–4 with 4 voices)
 5. set `PB range (st)` to match the pitch bend range configured on your target synth (the default is `2` semitones, which is the most common synth default)
 
+**pitch bend range:** tuning uses coarse + fine decomposition. the MIDI note sent to the synth is the nearest 12-TET semitone to the target pitch, and the pitch bend covers only the residual deviation (always ≤ ±50 cents). this means a PB range of `1` or `2` semitones is always sufficient for any scale, including large ones like 30-note or 31-tone equal temperament.
+
 **note:** the voice pool channels must be free — passthrough will use them exclusively for tuned voices. if your synth does not respond to pitch bend per channel, use `musicutil` mode instead or configure your synth for polyphonic pitch bend on the relevant channels.
 
 ## issues

@@ -45,4 +45,18 @@ function Tuning:pitch_bend_value(midi_note, root_note, pb_range_semitones)
     return math.max(0, math.min(16383, pb))
 end
 
+-- Coarse + fine tuning: returns (coarse_note, pb_value).
+-- coarse_note is the nearest 12-TET MIDI note to the target pitch.
+-- pb_value is the residual fine-tuning bend (always <= ±50 cents,
+-- so PB range 1-2 semitones is always sufficient for any scale).
+function Tuning:coarse_and_bend(midi_note, root_note, pb_range_semitones)
+    local degree = midi_note - root_note
+    local target_cents = 1200 * log2(self:degree_ratio(degree))
+    local nearest_semitone = math.floor(target_cents / 100 + 0.5)
+    local fine_cents = target_cents - nearest_semitone * 100
+    local coarse_note = math.max(0, math.min(127, root_note + nearest_semitone))
+    local pb = 8192 + math.floor(fine_cents / (pb_range_semitones * 100) * 8192 + 0.5)
+    return coarse_note, math.max(0, math.min(16383, pb))
+end
+
 return Tuning
