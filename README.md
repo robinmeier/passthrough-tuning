@@ -1,6 +1,6 @@
 # passthrough-tuning
 
-passthrough-tuning is a mod of the passthrough mod. the original passthrough offers midi routing between connected ports on norns. it is similar to _midi thru_ on hardware devices although it comes with some extra functionality. The -tuning mod here allows you to load various tunings from scala files and play microtonal scales on your mididevices (and norns engines) as long as they either understand pitchbend or use musicutil. 
+passthrough-tuning is a mod of the passthrough mod. the original passthrough offers midi routing between connected ports on norns. it is similar to _midi thru_ on hardware devices although it comes with some extra functionality. The -tuning mod here allows you to load various tunings from [Scala](https://www.huygens-fokker.org/scala/) files and play microtonal scales on your mididevices (and norns engines) as long as they either understand pitchbend or use musicutil. 
 
 ![animated image of passthrough mod interface](img/mod_menu.gif)
 
