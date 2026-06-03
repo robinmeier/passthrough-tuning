@@ -118,7 +118,7 @@ end
 
 local function refresh_musicutil_tuning()
   for i = 1, 16 do
-    if state[i] and state[i].tuning_mode == 2 then
+    if state[i] and state[i].active == 2 and state[i].tuning_mode == 2 then
       local t = core.port_tunings[i]
       if t then
         core.apply_musicutil_patch(t, state[i].tuning_root)
@@ -177,7 +177,10 @@ function create_config()
         param_type = "option",
         id = "active",
         name = "Active",
-        options = core.toggles
+        options = core.toggles,
+        action = function(value)
+          refresh_musicutil_tuning()
+        end
       },
       target = {
         param_type = "option",
