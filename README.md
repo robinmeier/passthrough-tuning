@@ -53,7 +53,7 @@ passthrough assigns some midi routing settings for each connected midi device in
 - `Crow cc out b` sets the MIDI control change number to assign to the second of the assigned pair of `Crow cc output`
 - `Tuning` selects the microtuning mode: `off`, `musicutil`, or `midi pb` (see [microtuning](#microtuning) below)
 - `Tuning file` selects a `.scl` file from `~/dust/data/passthrough/tunings/`
-- `Tuning root` sets the root MIDI note (0–127, shown as note name e.g. C4). This is the key that plays scale degree 0. Consecutive keys play consecutive scale degrees, so the scale period (octave) repeats every N keys for an N-note scale.
+- `Tuning root` sets the root MIDI note (0–127, shown as note name e.g. A4). **Transposing mode**: degree 0 always sounds at A4=440 Hz regardless of this setting — this parameter only shifts which physical key triggers degree 0. Default is A4 (MIDI 69), which means A on the keyboard plays the scale tonic at 440 Hz. Set to C4 (MIDI 60) to play the scale from the C key, with C sounding at 440 Hz.
 - `PB voices` sets how many simultaneous voices are available in `midi pb` mode: `1`, `4`, `8`, or `16`
 - `PB base ch` sets the first MIDI channel used for the pitch-bend voice pool in `midi pb` mode
 - `PB range (st)` sets the pitch bend range in semitones: `1`, `2`, `4`, `12`, or `24` — must match the pitch bend range configured on your target synth
@@ -114,13 +114,15 @@ the folder is created automatically on first run. the `Tuning file` parameter li
 
 **key mapping:** each MIDI key plays one scale degree in order. Key `root` = degree 0, key `root+1` = degree 1, and so on. After N keys the scale period repeats one octave higher, where N is the number of degrees in the `.scl` file. A 5-note pentatonic scale therefore repeats every 5 keys; a 30-note scale spans 30 consecutive keys per octave.
 
+**transposing mode:** the pitch reference is always A4=440 Hz. degree 0 always sounds at 440 Hz — `Tuning root` only selects which MIDI key triggers degree 0. set `Tuning root` to A4 (default) to keep the standard keyboard layout, or shift it to play the scale from any other key while preserving the 440 Hz anchor. when tuning is turned off or the port is deactivated, `MusicUtil.note_num_to_freq` is restored to standard 12-TET (A4=440 Hz).
+
 there are two tuning modes:
 
 ### musicutil (for norns engines)
 
 patches `MusicUtil.note_num_to_freq` globally so that any norns engine which uses musicutil for pitch calculation (most do) will automatically play in the selected tuning. no additional configuration of the engine is needed.
 
-the first port with `Tuning` set to `musicutil` determines the active tuning for the whole system.
+the first port with `Tuning` set to `musicutil` and `Active` set to `yes` determines the active tuning for the whole system. when no such port exists, the standard 12-TET function is restored automatically.
 
 ### midi pb (for external hardware and software)
 

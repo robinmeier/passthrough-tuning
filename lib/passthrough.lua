@@ -227,7 +227,7 @@ function Passthrough.init()
             name = "Tuning root",
             min = 0,
             max = 127,
-            default = 60,
+            default = 69,
             formatter = function(param) return core.root_note_formatter(param:get()) end
           }
           params:add {

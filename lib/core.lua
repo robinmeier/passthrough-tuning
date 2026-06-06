@@ -198,10 +198,11 @@ pt.setup_voice_pool = function(port, voice_count, base_ch)
     pt.voice_pools[port] = pool
 end
 
+-- Transposing mode: root_hz is always A4=440 Hz regardless of root_note.
+-- root_note determines which MIDI key plays degree 0 at 440 Hz.
 pt.apply_musicutil_patch = function(tuning, root_note)
     MusicUtil.note_num_to_freq = function(num)
-        local root_hz = original_note_num_to_freq(root_note)
-        return tuning:note_freq(num, root_note, root_hz)
+        return tuning:note_freq(num, root_note, 440.0)
     end
 end
 
@@ -300,7 +301,8 @@ pt.handle_midi_data = function(msg, target, out_ch, quantize_midi, current_scale
             slot.note = note
             slot.age = voice_age_counter
             if tuning then
-                local coarse, pb = tuning:coarse_and_bend(note, tuning_root, pb_range)
+                -- ref_note=69: transposing mode, degree 0 always maps to A4=440 Hz
+                local coarse, pb = tuning:coarse_and_bend(note, tuning_root, pb_range, 69)
                 slot.coarse_note = coarse
                 target:pitchbend(pb, slot.channel)
                 target:note_on(coarse, msg.vel, slot.channel)
