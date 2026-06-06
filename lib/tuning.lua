@@ -49,8 +49,8 @@ end
 -- coarse_note is the nearest 12-TET MIDI note to the target pitch.
 -- pb_value is the residual fine-tuning bend (always <= ±50 cents,
 -- so PB range 1-2 semitones is always sufficient for any scale).
--- ref_note: absolute pitch anchor for coarse note lookup. Use root_note for
--- standard behavior, or 69 for transposing mode (A4=440 Hz fixed reference).
+-- ref_note: MIDI note used as coarse pitch anchor. Defaults to root_note (adjusting
+-- mode: coarse lookup tracks the 12-TET pitch of root_note).
 function Tuning:coarse_and_bend(midi_note, root_note, pb_range_semitones, ref_note)
     ref_note = ref_note or root_note
     local degree = midi_note - root_note
