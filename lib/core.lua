@@ -198,10 +198,11 @@ pt.setup_voice_pool = function(port, voice_count, base_ch)
     pt.voice_pools[port] = pool
 end
 
+-- Adjusting mode: root_hz tracks the 12-TET frequency of root_note, so changing
+-- root_note shifts both the keyboard mapping and the pitch reference together.
 pt.apply_musicutil_patch = function(tuning, root_note)
     MusicUtil.note_num_to_freq = function(num)
-        local root_hz = original_note_num_to_freq(root_note)
-        return tuning:note_freq(num, root_note, root_hz)
+        return tuning:note_freq(num, root_note, original_note_num_to_freq(root_note))
     end
 end
 
